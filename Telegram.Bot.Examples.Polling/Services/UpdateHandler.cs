@@ -119,12 +119,21 @@ public class UpdateHandler : IUpdateHandler
                     {
                         var currentRecord = GetStatisticPlayer(playerId);
                         if (currentRecord.Count == 0) return;
+                        var sql = $"update " +
+                                    $"  PlayerStatistics " +
+                                    $"set " +
+                                    $"    GamesPlayed={currentRecord[0].Statistics.GamesPlayed + 1}," +
+                                    $"    DeathCount={currentRecord[0].Statistics.DeathCount + 1} " +
+                                    $"{(currentRecord[0].Rank > currentRecord[0].Statistics.MaxRank ? $",{currentRecord[0].Rank > currentRecord[0].Statistics.MaxRank} " : "")} " +
+                                    $"where" +
+                                    $"  User_id={playerId}";
+                        bool s = true;
                         connection.Query<PlayerStatistic>($"update " +
                                                             $"  PlayerStatistics " +
                                                             $"set " +
                                                             $"    GamesPlayed={currentRecord[0].Statistics.GamesPlayed + 1}," +
                                                             $"    DeathCount={currentRecord[0].Statistics.DeathCount + 1} " +
-                                                            $"{(currentRecord[0].Rank > currentRecord[0].Statistics.MaxRank ? $",{currentRecord[0].Rank > currentRecord[0].Statistics.MaxRank}" : "")} " +
+                                                            $"{(currentRecord[0].Rank > currentRecord[0].Statistics.MaxRank ? $",MaxRank={currentRecord[0].Rank} " : "")} " +
                                                             $"where" +
                                                             $"  User_id={playerId}");
 
