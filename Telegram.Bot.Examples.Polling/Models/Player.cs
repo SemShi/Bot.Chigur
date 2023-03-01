@@ -12,6 +12,7 @@ namespace Telegram.Bot.Examples.Polling.Models
         public long Chat_id { get; set; }
         public string Name { get; set; }
         public int Rank { get; set; }
-        public int Health { get; private set; }
+        public int Health { get; set; }
+        public PlayerStatistic Statistics { get; set; }
     }
 }

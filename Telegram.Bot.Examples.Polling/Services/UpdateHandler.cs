@@ -3,6 +3,7 @@ using Microsoft.VisualBasic;
 using System.Data.SqlClient;
 using System.Net;
 using System.Numerics;
+using System.Threading;
 using Telegram.Bot.Examples.Polling.Files;
 using Telegram.Bot.Examples.Polling.Models;
 using Telegram.Bot.Exceptions;
@@ -31,12 +32,12 @@ public class UpdateHandler : IUpdateHandler
     {
         var handler = update switch
         {
-            { Message: { } message } => BotOnMessageReceived(message, cancellationToken),
+            { Message: { } message }                         => BotOnMessageReceived(message, cancellationToken),
             //{ EditedMessage: { } message }                 => BotOnMessageReceived(message, cancellationToken),
-            { CallbackQuery: { } callbackQuery } => BotOnCallbackQueryReceived(callbackQuery, cancellationToken),
+            { CallbackQuery: { } callbackQuery }             => BotOnCallbackQueryReceived(callbackQuery, cancellationToken),
             //{ InlineQuery: { } inlineQuery }               => BotOnInlineQueryReceived(inlineQuery, cancellationToken),
             //{ ChosenInlineResult: { } chosenInlineResult } => BotOnChosenInlineResultReceived(chosenInlineResult, cancellationToken),
-            _ => UnknownUpdateHandlerAsync(update, cancellationToken)
+            _                                                => UnknownUpdateHandlerAsync(update, cancellationToken)
         };
 
         await handler;
@@ -45,12 +46,12 @@ public class UpdateHandler : IUpdateHandler
     #region Методы для взаимодействия с игроком
     private static List<Player> GetPlayers(string conditions = "")
     {
-        List<Player> playerList;
         using (var connection = new SqlConnection(ConnectionString.ConnectionString))
         {
-            playerList = connection.Query<Player>("select * from Players " + conditions).ToList();
+            var playerList = connection.Query<Player>("select * from Players " + conditions).ToList();
+            return playerList;
         }
-        return playerList;
+        
     }
 
     private static void AddPlayer(Message message)
@@ -61,6 +62,14 @@ public class UpdateHandler : IUpdateHandler
                                      $"  Players(User_id, Chat_id, Name, Rank, Health) " +
                                      $"values " +
                                      $"  ({message.From.Id}, {message.Chat.Id}, '{message.From.FirstName}', 0, 100)");
+
+            var isUserExist = connection.Query<PlayerStatistic>($"select * from PlayerStatistics where User_id={message.From.Id}").ToList();
+
+            if (isUserExist.Count > 0) return;
+            connection.Query<PlayerStatistic>($"insert into " +
+                                              $"  PlayerStatistics(User_id, GamesPlayed, MaxRank, DeathCount) " +
+                                              $"values " +
+                                              $"  ({message.From.Id}, 0, 0, 0)");
         }
     }
 
@@ -68,10 +77,85 @@ public class UpdateHandler : IUpdateHandler
     {
         using (var connection = new SqlConnection(ConnectionString.ConnectionString))
         {
+            UpdateStatPlayer(playerId, "/death");
             connection.Query<Player>($"delete from " +
                                      $"  Players " +
                                      $"where " +
                                      $"  User_id={playerId}");
+        }
+    }
+
+    private static void DoDamagePlayer(long playerId, int damage)
+    {
+        using (var connection = new SqlConnection(ConnectionString.ConnectionString))
+        {
+            connection.Query<Player>($"declare @oldHealth int " +
+                                     $"set @oldHealth = (select Health from Players where User_id={playerId}) " +
+                                     $"update Players " +
+                                     $"set Health = @oldHealth - {damage} " +
+                                     $"where User_id={playerId}");
+        }
+    }
+
+    private static void UpdateRankPlayer(long playerId, int exp, string operation)
+    {
+        using (var connection = new SqlConnection(ConnectionString.ConnectionString))
+        {
+            connection.Query<Player>($"declare @oldRank int " +
+                                     $"set @oldRank = (select Rank from Players where User_id={playerId}) " +
+                                     $"update Players " +
+                                     $"set Rank = @oldRank {operation} {exp} " +
+                                     $"where User_id={playerId}");
+        }
+    }
+
+    private static void UpdateStatPlayer(long playerId, string method)
+    {
+        using (var connection = new SqlConnection(ConnectionString.ConnectionString))
+        {
+            switch(method)
+            {
+                case "/death":
+                    {
+                        var currentRecord = GetStatisticPlayer(playerId);
+                        if (currentRecord.Count == 0) return;
+                        connection.Query<PlayerStatistic>($"update " +
+                                                            $"  PlayerStatistics " +
+                                                            $"set " +
+                                                            $"    GamesPlayed={currentRecord[0].Statistics.GamesPlayed + 1}," +
+                                                            $"    DeathCount={currentRecord[0].Statistics.DeathCount + 1} " +
+                                                            $"{(currentRecord[0].Rank > currentRecord[0].Statistics.MaxRank ? $",{currentRecord[0].Rank > currentRecord[0].Statistics.MaxRank}" : "")} " +
+                                                            $"where" +
+                                                            $"  User_id={playerId}");
+
+                        break;
+                    }
+                case "/joinGame":
+                    {
+                        break;
+                    }
+            }
+        }
+    }
+
+    private static List<Player> GetStatisticPlayer(long playerId)
+    {
+        if (!GetPlayers().Exists(x => x.User_id == playerId)) return new List<Player>();
+
+        using (var connection = new SqlConnection(ConnectionString.ConnectionString))
+        {
+            var sql = @"SELECT *
+                        FROM Players p 
+                        LEFT JOIN PlayerStatistics s ON s.User_id = p.User_id";
+
+            var player = connection.Query<Player, PlayerStatistic, Player>(sql, (player, statistic) => {
+                player.Statistics = statistic;
+                return player;
+            },
+            splitOn: "User_id");
+
+            return player.ToList();
+            //products.ToList().ForEach(product => Console.WriteLine($"Product: {product.ProductName}, Category: {product.Category.CategoryName}"));
         }
     }
     #endregion
@@ -113,7 +197,8 @@ public class UpdateHandler : IUpdateHandler
             {
                 "/start"             => Start(_botClient, message, cancellationToken),
                 "/iwannaplay"        => IWannaPlay(_botClient, message, cancellationToken),
-                "/suicide"              => Suicide(_botClient, message, cancellationToken),
+                "/suicide"           => Suicide(_botClient, message, cancellationToken),
+                "/mystat"            => PlayerStat(_botClient, message, cancellationToken),
                 _                    => Default(_botClient, message, cancellationToken)
                 //"/inline_keyboard" => SendInlineKeyboard(_botClient, message, cancellationToken),
                 //"/keyboard"        => SendReplyKeyboard(_botClient, message, cancellationToken),
@@ -126,6 +211,14 @@ public class UpdateHandler : IUpdateHandler
             };;
             Message sentMessage = await action;
             _logger.LogInformation("The message was sent with id: {SentMessageId}", sentMessage.MessageId);
+        }
+        else
+        {
+            if(GetPlayers().Exists(x => x.User_id == message.From.Id))
+            {
+                UpdateRankPlayer(message.From.Id, 1, "+");
+            }
+            
         }
         #region Chigur Tasks
 
@@ -207,7 +300,28 @@ public class UpdateHandler : IUpdateHandler
                                 text: $"Игрок {message.From.FirstName} обоссан и слит.💀",
                                 cancellationToken: cancellationToken);
         }
-
+        static async Task<Message> PlayerStat(ITelegramBotClient botClient, Message message, CancellationToken cancellationToken)
+        {
+            var playerStat = GetStatisticPlayer(message.From.Id);
+            if (playerStat.Count == 0)
+            {
+                return await botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: $"\"{message.From.FirstName}\", ты не в игре. Используй команду /iwannaplay, попробуй обыграть повелителя Сигм!",
+                    cancellationToken: cancellationToken);
+            }
+            return await botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: $"📝Текущая статистика игрока {message.From.FirstName}:\n" +
+                                $"🤠Имя: {playerStat[0].Name}\n" +
+                                $"💊Здоровье: {playerStat[0].Health}\n" +
+                                $"🏆Рейтинг: {playerStat[0].Rank}\n" +
+                                $"\n" +
+                                $"📔Общая статистика:\n" +
+                                $"🌟Максимальный рейтинг: {playerStat[0].Statistics.MaxRank}\n" +
+                                $"💀Кол-во смертей: {playerStat[0].Statistics.DeathCount}",
+                    cancellationToken: cancellationToken);
+        }
         #endregion
 
         #region Примеры отправки сообщений
