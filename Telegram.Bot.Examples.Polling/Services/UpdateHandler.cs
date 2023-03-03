@@ -72,7 +72,7 @@ public class UpdateHandler : IUpdateHandler
 
         if (message.Text.StartsWith("/"))
         {
-            var action = messageText.Replace("@UniversalSigma_bot", "").ToLower().Split(' ')[0] switch
+            var action = messageText.Replace("@UniversalSigma_bot", "").Split(' ')[0] switch
             {
                 "/start"             => Commands.Start(_botClient, message, cancellationToken),
                 "/iwannaplay"        => Commands.IWannaPlay(_botClient, message, cancellationToken),
@@ -86,7 +86,7 @@ public class UpdateHandler : IUpdateHandler
         }
         else
         {
-            if(PlayerHelper.IsPlaying(message))
+            if(!PlayerHelper.IsPlaying(message))
                 InteractWithPlayer.UpdateRankPlayer(message.From.Id, 1, "+");
         }
     }

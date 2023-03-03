@@ -13,8 +13,8 @@ namespace Telegram.Bot.Examples.Polling.Helpers
         public static bool IsPlaying(Message message)
         {
             if (!InteractWithPlayer.GetPlayers().Exists(x => x.User_id == message.From.Id))
-                return false;
-            return true;
+                return true;
+            return false;
                 
         }
     }
