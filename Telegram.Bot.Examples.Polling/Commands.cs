@@ -14,6 +14,8 @@ namespace Telegram.Bot.Examples.Polling
 {
     public static class Commands
     {
+        private const string AdminId = "367104170";
+
        public static async Task<Message> Start(ITelegramBotClient botClient, Message message, CancellationToken cancellationToken)
         {
             return await botClient.SendTextMessageAsync(
@@ -117,6 +119,24 @@ namespace Telegram.Bot.Examples.Polling
                     cancellationToken: cancellationToken);
         }
 
+        #region Админские команды
+        public static async Task<Message> ClearDatabase(ITelegramBotClient botClient, Message message, CancellationToken cancellationToken)
+        {
+            if (message.From.Id.ToString() != AdminId)
+            {
+                return await botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: $"У вас нет прав к этой команде.",
+                    cancellationToken: cancellationToken);
+            }
+            UpdateDB.ClearDB();
+            return await botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: $"База очищена.",
+                    cancellationToken: cancellationToken);
+
+        }
+        #endregion
         #region Примеры отправки сообщений
         // Send inline keyboard
         // You can process responses in BotOnCallbackQueryReceived handler

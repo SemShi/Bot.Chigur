@@ -14,14 +14,13 @@ namespace Telegram.Bot.Examples.Polling
 {
     public static class Callbacks
     {
-        public static async Task FlipCoin(ITelegramBotClient _botClient, CallbackQuery callbackQuery, CancellationToken cancellationToken)
+        public static async Task FlipCoin(ITelegramBotClient _botClient, CallbackParams parameters, CallbackQuery callbackQuery, CancellationToken cancellationToken)
         {
             await _botClient.DeleteMessageAsync(
                             chatId: callbackQuery.Message.Chat.Id,
                             messageId: callbackQuery.Message.MessageId);
-            long whoseCoin = Convert.ToInt64(data[2].Trim());
 
-            if (whoseCoin != callbackQuery.From.Id)
+            if (parameters.WhoseCoin != callbackQuery.From.Id)
             {
                 await _botClient.SendTextMessageAsync(
                     chatId: callbackQuery.Message.Chat.Id,
@@ -47,8 +46,8 @@ namespace Telegram.Bot.Examples.Polling
 
             TelegramAPI.SendGif(callbackQuery.Message.Chat.Id, GIFs.CoinFlip);
             await Task.Delay(3000);
-            int coinSide = Convert.ToInt32(value);
-            if (Games.CoinFlip(coinSide))
+            int coinSide = Convert.ToInt32(parameters.Value);
+            if (Games.Games.CoinFlip(coinSide))
             {
                 await _botClient.SendTextMessageAsync(
                 chatId: callbackQuery.Message.Chat.Id,
@@ -73,5 +72,20 @@ namespace Telegram.Bot.Examples.Polling
                     cancellationToken: cancellationToken);
             }
         }
+
+        #region Примеры ответов на коллбеки
+        static async Task CallbackAnswer(ITelegramBotClient _botClient, CallbackQuery callbackQuery, CancellationToken cancellationToken)
+        {
+            await _botClient.AnswerCallbackQueryAsync(
+                callbackQueryId: callbackQuery.Id,
+                text: $"Received {callbackQuery.Data}",
+                cancellationToken: cancellationToken);
+
+            await _botClient.SendTextMessageAsync(
+                chatId: callbackQuery.Message!.Chat.Id,
+                text: $"Received {callbackQuery.Data}",
+                cancellationToken: cancellationToken);
+        }
+        #endregion
     }
 }

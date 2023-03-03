@@ -72,12 +72,13 @@ public class UpdateHandler : IUpdateHandler
 
         if (message.Text.StartsWith("/"))
         {
-            var action = messageText.Replace("@UniversalSigma_bot", "").Split(' ')[0] switch
+            var action = messageText.Replace("@UniversalSigma_bot", "").ToLower().Split(' ')[0] switch
             {
                 "/start"             => Commands.Start(_botClient, message, cancellationToken),
                 "/iwannaplay"        => Commands.IWannaPlay(_botClient, message, cancellationToken),
                 "/suicide"           => Commands.Suicide(_botClient, message, cancellationToken),
                 "/mystat"            => Commands.PlayerStat(_botClient, message, cancellationToken),
+                "/delallfromdb"      => Commands.ClearDatabase(_botClient, message, cancellationToken),
                 _                    => Commands.Default(_botClient, message, cancellationToken)
             };
             Message sentMessage = await action;
