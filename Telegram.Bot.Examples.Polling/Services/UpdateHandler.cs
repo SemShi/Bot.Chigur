@@ -5,6 +5,9 @@ using System.Net;
 using System.Numerics;
 using System.Threading;
 using Telegram.Bot.Examples.Polling.Files;
+using Telegram.Bot.Examples.Polling.Games;
+using Telegram.Bot.Examples.Polling.Helpers;
+using Telegram.Bot.Examples.Polling.MethodsDB;
 using Telegram.Bot.Examples.Polling.Models;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Polling;
@@ -28,6 +31,16 @@ public class UpdateHandler : IUpdateHandler
         _logger = logger;
     }
 
+    /// <summary>
+    /// Метод обрабатывает все сообщения, которые увидел бот.
+    /// На входе проверят тип полученного сообщения.
+    /// Message - обычно сообщение
+    /// CallbackQuery - ответ на кнопу, созданную классом InlineKeyboardButton.
+    /// </summary>
+    /// <param name="_"></param>
+    /// <param name="update"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
     public async Task HandleUpdateAsync(ITelegramBotClient _, Update update, CancellationToken cancellationToken)
     {
         var handler = update switch
@@ -43,157 +56,13 @@ public class UpdateHandler : IUpdateHandler
         await handler;
     }
 
-    #region Методы для взаимодействия с игроком
-    private static List<Player> GetPlayers(string conditions = "")
-    {
-        using (var connection = new SqlConnection(ConnectionString.ConnectionString))
-        {
-            var playerList = connection.Query<Player>("select * from Players " + conditions).ToList();
-            return playerList;
-        }
-        
-    }
-
-    private static void AddPlayer(Message message)
-    {
-        using (var connection = new SqlConnection(ConnectionString.ConnectionString))
-        {
-            connection.Query<Player>($"insert into " +
-                                     $"  Players(User_id, Chat_id, Name, Rank, Health) " +
-                                     $"values " +
-                                     $"  ({message.From.Id}, {message.Chat.Id}, '{message.From.FirstName}', 0, 100)");
-
-            var isUserExist = connection.Query<PlayerStatistic>($"select * from PlayerStatistics where User_id={message.From.Id}").ToList();
-
-            if (isUserExist.Count > 0) return;
-            connection.Query<PlayerStatistic>($"insert into " +
-                                              $"  PlayerStatistics(User_id, GamesPlayed, MaxRank, DeathCount) " +
-                                              $"values " +
-                                              $"  ({message.From.Id}, 0, 0, 0)");
-        }
-    }
-
-    private static void DeletePlayer(long playerId)
-    {
-        using (var connection = new SqlConnection(ConnectionString.ConnectionString))
-        {
-            UpdateStatPlayer(playerId, "/death");
-            connection.Query<Player>($"delete from " +
-                                     $"  Players " +
-                                     $"where " +
-                                     $"  User_id={playerId}");
-        }
-    }
-
-    private static void DoDamagePlayer(long playerId, int damage)
-    {
-        using (var connection = new SqlConnection(ConnectionString.ConnectionString))
-        {
-            connection.Query<Player>($"declare @oldHealth int " +
-                                     $"set @oldHealth = (select Health from Players where User_id={playerId}) " +
-                                     $"update Players " +
-                                     $"set Health = @oldHealth - {damage} " +
-                                     $"where User_id={playerId}");
-        }
-    }
-
-    private static void UpdateRankPlayer(long playerId, int exp, string operation)
-    {
-        using (var connection = new SqlConnection(ConnectionString.ConnectionString))
-        {
-            connection.Query<Player>($"declare @oldRank int " +
-                                     $"set @oldRank = (select Rank from Players where User_id={playerId}) " +
-                                     $"update Players " +
-                                     $"set Rank = @oldRank {operation} {exp} " +
-                                     $"where User_id={playerId}");
-        }
-    }
-
-    private static void UpdateStatPlayer(long playerId, string method)
-    {
-        using (var connection = new SqlConnection(ConnectionString.ConnectionString))
-        {
-            switch(method)
-            {
-                case "/death":
-                    {
-                        var currentRecord = GetStatisticPlayer(playerId);
-                        if (currentRecord.Count == 0) return;
-                        var sql = $"update " +
-                                    $"  PlayerStatistics " +
-                                    $"set " +
-                                    $"    GamesPlayed={currentRecord[0].Statistics.GamesPlayed + 1}," +
-                                    $"    DeathCount={currentRecord[0].Statistics.DeathCount + 1} " +
-                                    $"{(currentRecord[0].Rank > currentRecord[0].Statistics.MaxRank ? $",{currentRecord[0].Rank > currentRecord[0].Statistics.MaxRank} " : "")} " +
-                                    $"where" +
-                                    $"  User_id={playerId}";
-                        bool s = true;
-                        connection.Query<PlayerStatistic>($"update " +
-                                                            $"  PlayerStatistics " +
-                                                            $"set " +
-                                                            $"    GamesPlayed={currentRecord[0].Statistics.GamesPlayed + 1}," +
-                                                            $"    DeathCount={currentRecord[0].Statistics.DeathCount + 1} " +
-                                                            $"{(currentRecord[0].Rank > currentRecord[0].Statistics.MaxRank ? $",MaxRank={currentRecord[0].Rank} " : "")} " +
-                                                            $"where" +
-                                                            $"  User_id={playerId}");
-
-                        break;
-                    }
-                case "/joinGame":
-                    {
-                        break;
-                    }
-            }
-        }
-    }
-
-    private static List<Player> GetStatisticPlayer(long playerId)
-    {
-        if (!GetPlayers().Exists(x => x.User_id == playerId)) return new List<Player>();
-
-        using (var connection = new SqlConnection(ConnectionString.ConnectionString))
-        {
-            var sql = @"SELECT *
-                        FROM Players p 
-                        LEFT JOIN PlayerStatistics s ON s.User_id = p.User_id";
-
-            var player = connection.Query<Player, PlayerStatistic, Player>(sql, (player, statistic) => {
-                player.Statistics = statistic;
-                return player;
-            },
-            splitOn: "User_id");
-
-            return player.ToList();
-            //products.ToList().ForEach(product => Console.WriteLine($"Product: {product.ProductName}, Category: {product.Category.CategoryName}"));
-        }
-    }
-    #endregion
-
-    #region GET методы
-    public static void SendGif(long ChatId, string uriGif)
-    {
-        string uri =
-            $"https://api.telegram.org/bot{BotToken}/sendVideo?chat_id={ChatId}&video={uriGif}";
-        var web = new WebClient();
-        var bytes = web.DownloadData(uri);
-    }
-    #endregion
-    #region Игры Чигура
     /// <summary>
-    /// Когда Чигур предлагает выбрать сторону, метод решает выживет игрок или нет.
+    /// Метод обрабатывает полученное сообщени, далее, если сообщение начинается с '/', при помощи конструкции switch выбирается необходимый метод.
     /// </summary>
-    /// <param name="CoinSide">Сторона монетки. Орел - 0, Решка - 1</param>
-    /// <returns>True - сохраняет жизнь, False - забирает жизнь</returns>
-    public static bool Games_CoinFlip(int coinSide)
-    {
-        var rnd = new Random();
-        if (coinSide == rnd.Next(0, 2))
-            return true;
-        else
-            return false;
-    }
-    #endregion
-
+    /// <param name="message"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    /// <exception cref="IndexOutOfRangeException"></exception>
     private async Task BotOnMessageReceived(Message message, CancellationToken cancellationToken)
     {
         _logger.LogInformation("Receive message type: {MessageType}", message.Type);
@@ -223,9 +92,9 @@ public class UpdateHandler : IUpdateHandler
         }
         else
         {
-            if(GetPlayers().Exists(x => x.User_id == message.From.Id))
+            if(PlayerHelper.IsPlaying(message))
             {
-                UpdateRankPlayer(message.From.Id, 1, "+");
+                InteractWithPlayer.UpdateRankPlayer(message.From.Id, 1, "+");
             }
             
         }
@@ -242,15 +111,15 @@ public class UpdateHandler : IUpdateHandler
 
         static async Task<Message> IWannaPlay(ITelegramBotClient botClient, Message message, CancellationToken cancellationToken)
         {
-            if(!GetPlayers().Exists(x => x.User_id == message.From.Id))
+            if(PlayerHelper.IsPlaying(message))
             {
-                AddPlayer(message);
+                InteractWithPlayer.AddPlayer(message);
                 await botClient.SendTextMessageAsync(
                     chatId: message.Chat.Id,
                     text: $"❗Игрок \"{message.From.FirstName}\" добавлен в список жертв Чигура!",
                     cancellationToken: cancellationToken);
 
-                var newPlayer = GetPlayers($"where User_id={message.From.Id}")[0];
+                var newPlayer = InteractWithPlayer.GetPlayers($"where User_id={message.From.Id}")[0];
                 return await botClient.SendTextMessageAsync(
                     chatId: message.Chat.Id,
                     text: $"📝Статистика игрока {message.From.FirstName}:\n" +
@@ -269,7 +138,7 @@ public class UpdateHandler : IUpdateHandler
 
         static async Task<Message> Default(ITelegramBotClient botClient, Message message, CancellationToken cancellationToken)
         {
-            if (!GetPlayers().Exists(x => x.User_id == message.From.Id))
+            if (PlayerHelper.IsPlaying(message))
             {
                 return await botClient.SendTextMessageAsync(
                     chatId: message.Chat.Id,
@@ -294,15 +163,15 @@ public class UpdateHandler : IUpdateHandler
         }
         static async Task<Message> Suicide(ITelegramBotClient botClient, Message message, CancellationToken cancellationToken)
         {
-            if (!GetPlayers().Exists(x => x.User_id == message.From.Id))
+            if (PlayerHelper.IsPlaying(message))
             {
                 return await botClient.SendTextMessageAsync(
                     chatId: message.Chat.Id,
                     text: $"\"{message.From.FirstName}\", ты не в игре. Используй команду /iwannaplay, попробуй обыграть повелителя Сигм!",
                     cancellationToken: cancellationToken);
             }
-            DeletePlayer(message.From.Id);
-            SendGif(message.Chat.Id, GIFs.Suicide);
+            InteractWithPlayer.DeletePlayer(message.From.Id);
+            TelegramAPI.SendGif(message.Chat.Id, GIFs.Suicide);
             await Task.Delay(2000);
             return await botClient.SendTextMessageAsync(
                                 chatId: message.Chat.Id,
@@ -311,7 +180,7 @@ public class UpdateHandler : IUpdateHandler
         }
         static async Task<Message> PlayerStat(ITelegramBotClient botClient, Message message, CancellationToken cancellationToken)
         {
-            var playerStat = GetStatisticPlayer(message.From.Id);
+            var playerStat = InteractWithPlayer.GetStatisticPlayer(message.From.Id);
             if (playerStat.Count == 0)
             {
                 return await botClient.SendTextMessageAsync(
@@ -473,7 +342,12 @@ public class UpdateHandler : IUpdateHandler
         #endregion
     }
 
-    // Process Inline Keyboard callback data
+    /// <summary>
+    /// Обработка коллбэков от нажатых кнопок
+    /// </summary>
+    /// <param name="callbackQuery"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
     private async Task BotOnCallbackQueryReceived(CallbackQuery callbackQuery, CancellationToken cancellationToken)
     {
         _logger.LogInformation("Received inline keyboard callback from: {CallbackQueryId}", callbackQuery.Id);
@@ -504,10 +378,10 @@ public class UpdateHandler : IUpdateHandler
                                 chatId: callbackQuery.Message.Chat.Id,
                                 text: "Сэр, пожалуйста, не двигайтесь.",
                                 cancellationToken: cancellationToken);
-                            SendGif(callbackQuery.Message.Chat.Id, GIFs.PleaseDontMove);
+                            TelegramAPI.SendGif(callbackQuery.Message.Chat.Id, GIFs.PleaseDontMove);
                             await Task.Delay(2000);
 
-                            DeletePlayer(callbackQuery.From.Id);
+                            InteractWithPlayer.DeletePlayer(callbackQuery.From.Id);
 
                             //TODO Эту хуйню надо убрать, т.к. в случае смерти игрока должно вызываться событие с последующим уведомлением
                             await _botClient.SendTextMessageAsync(
@@ -517,16 +391,16 @@ public class UpdateHandler : IUpdateHandler
                             break;
                         }
 
-                        SendGif(callbackQuery.Message.Chat.Id, GIFs.CoinFlip);
+                        TelegramAPI.SendGif(callbackQuery.Message.Chat.Id, GIFs.CoinFlip);
                         await Task.Delay(3000);
                         int coinSide = Convert.ToInt32(value);
-                        if (Games_CoinFlip(coinSide))
+                        if (Games.CoinFlip(coinSide))
                         {
                             await _botClient.SendTextMessageAsync(
                                 chatId: callbackQuery.Message.Chat.Id,
                                 text: "Желаю хорошего дня.🙌",
                                 cancellationToken: cancellationToken);
-                            SendGif(callbackQuery.Message.Chat.Id, GIFs.PlayerWin);
+                            TelegramAPI.SendGif(callbackQuery.Message.Chat.Id, GIFs.PlayerWin);
                         }
                         else
                         {
@@ -535,8 +409,8 @@ public class UpdateHandler : IUpdateHandler
                                 text: "Мне жаль...🔪",
                                 cancellationToken: cancellationToken);
                             await Task.Delay(1000);
-                            SendGif(callbackQuery.Message.Chat.Id, GIFs.PlayerLose);
-                            DeletePlayer(callbackQuery.From.Id);
+                            TelegramAPI.SendGif(callbackQuery.Message.Chat.Id, GIFs.PlayerLose);
+                            InteractWithPlayer.DeletePlayer(callbackQuery.From.Id);
 
                             //TODO Эту хуйню надо убрать, т.к. в случае смерти игрока должно вызываться событие
                             await _botClient.SendTextMessageAsync(
@@ -595,11 +469,7 @@ public class UpdateHandler : IUpdateHandler
 
     #endregion
 
-#pragma warning disable IDE0060 // Remove unused parameter
-#pragma warning disable RCS1163 // Unused parameter.
     private Task UnknownUpdateHandlerAsync(Update update, CancellationToken cancellationToken)
-#pragma warning restore RCS1163 // Unused parameter.
-#pragma warning restore IDE0060 // Remove unused parameter
     {
         _logger.LogInformation("Unknown update type: {UpdateType}", update.Type);
         return Task.CompletedTask;
