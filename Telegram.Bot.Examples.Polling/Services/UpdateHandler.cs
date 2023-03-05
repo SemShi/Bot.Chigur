@@ -79,6 +79,7 @@ public class UpdateHandler : IUpdateHandler
                 "/suicide"           => Commands.Suicide(_botClient, message, cancellationToken),
                 "/mystat"            => Commands.PlayerStat(_botClient, message, cancellationToken),
                 "/delallfromdb"      => Commands.ClearDatabase(_botClient, message, cancellationToken),
+                "/addplayer"         => Commands.AddPlayerByAdmin(_botClient, message, cancellationToken),
                 _                    => Commands.Default(_botClient, message, cancellationToken)
             };
             Message sentMessage = await action;
@@ -113,6 +114,15 @@ public class UpdateHandler : IUpdateHandler
                     {
                         long whoseCoin = Convert.ToInt64(data[2].Trim());
                         await Callbacks.FlipCoin(_botClient, new CallbackParams { Value= value, WhoseCoin = whoseCoin }, callbackQuery, cancellationToken);
+                        break;
+                    }
+                case "/addPlayer":
+                    {
+                        long UserId = Convert.ToInt64(value);
+                        long ChatId = Convert.ToInt64(data[2].Trim());
+                        string Name = data[3].Trim();
+                        var playerParams = new Player() { User_id = UserId, Chat_id = ChatId, Name = Name };
+                        await Callbacks.AddPlayer(_botClient, playerParams, cancellationToken);
                         break;
                     }
             }

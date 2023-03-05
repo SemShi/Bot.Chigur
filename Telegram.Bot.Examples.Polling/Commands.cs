@@ -9,6 +9,8 @@ using Telegram.Bot.Examples.Polling.Files;
 using Telegram.Bot.Examples.Polling.Helpers;
 using Telegram.Bot.Examples.Polling.MethodsDB;
 using Telegram.Bot.Types.Enums;
+using System.Data.SqlClient;
+using Telegram.Bot.Examples.Polling.Models;
 
 namespace Telegram.Bot.Examples.Polling
 {
@@ -50,6 +52,17 @@ namespace Telegram.Bot.Examples.Polling
                     text: $"Игрок \"{message.From.FirstName}\" уже добавлен в список жертв Чигура.",
                     cancellationToken: cancellationToken);
 
+        }
+
+        public static async Task AddPlayerByAdmin(ITelegramBotClient botClient, Player playerParams, CancellationToken cancellationToken)
+        {
+            Message message = new Message();
+            message.From = new User();
+            message.Chat = new Chat();
+            message.From.Id = playerParams.User_id;
+            message.From.FirstName = playerParams.Name;
+            message.Chat.Id= playerParams.Chat_id;
+            await IWannaPlay(botClient, message, cancellationToken);
         }
 
         public static async Task<Message> Default(ITelegramBotClient botClient, Message message, CancellationToken cancellationToken)
@@ -129,12 +142,89 @@ namespace Telegram.Bot.Examples.Polling
                     text: $"У вас нет прав к этой команде.",
                     cancellationToken: cancellationToken);
             }
+
             UpdateDB.ClearDB();
             return await botClient.SendTextMessageAsync(
                     chatId: message.Chat.Id,
                     text: $"База очищена.",
                     cancellationToken: cancellationToken);
 
+        }
+
+        public static async Task<Message> AddPlayerByAdmin(ITelegramBotClient botClient, Message message, CancellationToken cancellationToken)
+        {
+            if (message.From.Id.ToString() != AdminId)
+            {
+                return await botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: $"У вас нет прав к этой команде.",
+                    cancellationToken: cancellationToken);
+            }
+
+            var existingPlayers = InteractWithPlayer.GetAllStatistic();
+            if (existingPlayers.Count == 0)
+            {
+                return await botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: $"Список игроков пуст.",
+                    cancellationToken: cancellationToken);
+            }
+
+            #region Формируем кнопочки
+            InlineKeyboardButton[] buttons = new InlineKeyboardButton[existingPlayers.Count];
+
+            int i = 0;
+            foreach (var player in existingPlayers)
+            {
+                buttons[i] = InlineKeyboardButton.WithCallbackData(text: player.Name ?? "Unknown", callbackData: $"{player.User_id},/addPlayer,{message.Chat.Id},{player.Name ?? "Unknown"}");
+                i++;
+            }
+
+            bool IsCountLinesEven = existingPlayers.Count % 2 == 0 ? true : false;
+            int lines;
+            if (existingPlayers.Count == 1 || existingPlayers.Count == 2) lines = 1;
+            else if (existingPlayers.Count == 3 || existingPlayers.Count == 4) lines = 2;
+            else lines = existingPlayers.Count / 2 + (IsCountLinesEven ? 1 : 0);
+
+            InlineKeyboardButton[][] inlineButtons = new InlineKeyboardButton[lines][];
+            i = 0;
+            for (int j = 0; j < lines; j++)
+            {
+                if (Helpers.Extensions.IsIndexExist(buttons, i + 2))
+                {
+                    inlineButtons[j] = new InlineKeyboardButton[2]
+                    {
+                        buttons[i],
+                        buttons[i+1]
+                    };
+                   i += 2;
+                }
+                else if (Helpers.Extensions.IsIndexExist(buttons, i + 1))
+                {
+                    inlineButtons[j] = new InlineKeyboardButton[1]
+                    {
+                        buttons[i]
+                    };
+                }
+                else if (Helpers.Extensions.IsIndexExist(buttons, i))
+                {
+                    inlineButtons[j] = new InlineKeyboardButton[1]
+                    {
+                        buttons[i]
+                    };
+                }
+                else break;
+                
+            }
+            #endregion
+
+            InlineKeyboardMarkup inlineKeyboard = new(inlineButtons);
+
+            return await botClient.SendTextMessageAsync(
+                chatId: message.Chat.Id,
+                text: $"Выберите игрока:",
+                replyMarkup: inlineKeyboard,
+                cancellationToken: cancellationToken);
         }
         #endregion
         #region Примеры отправки сообщений

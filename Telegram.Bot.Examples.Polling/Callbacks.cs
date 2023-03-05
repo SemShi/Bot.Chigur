@@ -9,6 +9,7 @@ using Telegram.Bot.Examples.Polling.Helpers;
 using Telegram.Bot.Examples.Polling.MethodsDB;
 using Telegram.Bot.Types;
 using Telegram.Bot.Examples.Polling.Games;
+using Telegram.Bot.Examples.Polling.Models;
 
 namespace Telegram.Bot.Examples.Polling
 {
@@ -71,6 +72,11 @@ namespace Telegram.Bot.Examples.Polling
                     text: $"Игрок {callbackQuery.From.FirstName} убит.💀",
                     cancellationToken: cancellationToken);
             }
+        }
+
+        public static async Task AddPlayer(ITelegramBotClient _botClient, Player playerParams, CancellationToken cancellationToken)
+        {
+            await Commands.AddPlayerByAdmin(_botClient, playerParams, cancellationToken);
         }
 
         #region Примеры ответов на коллбеки

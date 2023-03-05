@@ -37,9 +37,9 @@ namespace Telegram.Bot.Examples.Polling.MethodsDB
 
                 if (isUserExist.Count > 0) return;
                 connection.Query<PlayerStatistic>($"insert into " +
-                                                  $"  PlayerStatistics(User_id, GamesPlayed, MaxRank, DeathCount) " +
+                                                  $"  PlayerStatistics(User_id, Name, GamesPlayed, MaxRank, DeathCount) " +
                                                   $"values " +
-                                                  $"  ({message.From.Id}, 0, 0, 0)");
+                                                  $"  ({message.From.Id}, '{message.From.FirstName}', 0, 0, 0)");
             }
         }
 
@@ -135,6 +135,14 @@ namespace Telegram.Bot.Examples.Polling.MethodsDB
 
                 return player.ToList();
                 //products.ToList().ForEach(product => Console.WriteLine($"Product: {product.ProductName}, Category: {product.Category.CategoryName}"));
+            }
+        }
+
+        public static List<PlayerStatistic> GetAllStatistic()
+        {
+            using (var connection = new SqlConnection(ConnectionString.ConnectionString))
+            {
+                return connection.Query<PlayerStatistic>("select * from PlayerStatistics").ToList();
             }
         }
     }

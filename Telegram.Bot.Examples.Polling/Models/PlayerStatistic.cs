@@ -9,6 +9,7 @@ namespace Telegram.Bot.Examples.Polling.Models
     public class PlayerStatistic
     {
         public long User_id { get; set; }
+        public string? Name { get; set; }
         public int GamesPlayed { get; set; }
         public int MaxRank { get; set; }
         public int DeathCount { get; set; }
