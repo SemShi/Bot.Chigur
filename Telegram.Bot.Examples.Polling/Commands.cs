@@ -143,7 +143,7 @@ namespace Telegram.Bot.Examples.Polling
                     cancellationToken: cancellationToken);
             }
             var msgInv = new StringBuilder();
-            msgInv.Append($"🎒Инвентарь игрока {message.From.FirstName}:\n");
+            msgInv.Append($"🎒Инвентарь игрока \"{message.From.FirstName}\":\n");
             foreach(var item in playerInventory )
             {
                 msgInv.Append($"— {item.Items.Name}\n");

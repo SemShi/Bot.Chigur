@@ -35,7 +35,7 @@ namespace Telegram.Bot.Examples.Polling.MethodsDB
                 connection.Query<Inventory>($"insert into " +
                                             $"  Inventory(User_id, Item_id) " +
                                             $"values " +
-                                            $"  {message.From.Id}, {(int)Enums.Items.Кулаки}");
+                                            $"  ({message.From.Id}, {(int)Enums.Items.Кулаки})");
 
                 var isUserExist = connection.Query<PlayerStatistic>($"select * from PlayerStatistics where User_id={message.From.Id}").ToList();
 
