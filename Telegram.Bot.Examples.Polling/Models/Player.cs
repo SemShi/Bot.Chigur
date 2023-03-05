@@ -13,6 +13,8 @@ namespace Telegram.Bot.Examples.Polling.Models
         public string Name { get; set; }
         public int Rank { get; set; }
         public int Health { get; set; }
+        public int Money { get; set; }
         public PlayerStatistic Statistics { get; set; }
+        public Inventory Inventory { get; set; }
     }
 }

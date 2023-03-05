@@ -80,6 +80,7 @@ public class UpdateHandler : IUpdateHandler
                 "/mystat"            => Commands.PlayerStat(_botClient, message, cancellationToken),
                 "/delallfromdb"      => Commands.ClearDatabase(_botClient, message, cancellationToken),
                 "/addplayer"         => Commands.AddPlayerByAdmin(_botClient, message, cancellationToken),
+                "/inventory"         => Commands.PlayerInventory(_botClient, message, cancellationToken),
                 _                    => Commands.Default(_botClient, message, cancellationToken)
             };
             Message sentMessage = await action;

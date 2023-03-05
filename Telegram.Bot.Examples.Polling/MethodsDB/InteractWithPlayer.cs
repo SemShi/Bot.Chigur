@@ -29,9 +29,13 @@ namespace Telegram.Bot.Examples.Polling.MethodsDB
             using (var connection = new SqlConnection(ConnectionString.ConnectionString))
             {
                 connection.Query<Player>($"insert into " +
-                                         $"  Players(User_id, Chat_id, Name, Rank, Health) " +
+                                         $"  Players(User_id, Chat_id, Name, Rank, Health, Money) " +
                                          $"values " +
-                                         $"  ({message.From.Id}, {message.Chat.Id}, '{message.From.FirstName}', 0, 100)");
+                                         $"  ({message.From.Id}, {message.Chat.Id}, '{message.From.FirstName}', 0, 100, 0)");
+                connection.Query<Inventory>($"insert into " +
+                                            $"  Inventory(User_id, Item_id) " +
+                                            $"values " +
+                                            $"  {message.From.Id}, {(int)Enums.Items.Кулаки}");
 
                 var isUserExist = connection.Query<PlayerStatistic>($"select * from PlayerStatistics where User_id={message.From.Id}").ToList();
 
@@ -75,6 +79,18 @@ namespace Telegram.Bot.Examples.Polling.MethodsDB
                                          $"set @oldRank = (select Rank from Players where User_id={playerId}) " +
                                          $"update Players " +
                                          $"set Rank = @oldRank {operation} {exp} " +
+                                         $"where User_id={playerId}");
+            }
+        }
+
+        public static void UpdateMoneyPlayer(long playerId, int count, string operation)
+        {
+            using (var connection = new SqlConnection(ConnectionString.ConnectionString))
+            {
+                connection.Query<Player>($"declare @oldMoney int " +
+                                         $"set @oldMoney = (select Money from Players where User_id={playerId}) " +
+                                         $"update Players " +
+                                         $"set Money = @oldMoney {operation} {count} " +
                                          $"where User_id={playerId}");
             }
         }
@@ -134,7 +150,6 @@ namespace Telegram.Bot.Examples.Polling.MethodsDB
                 splitOn: "User_id");
 
                 return player.ToList();
-                //products.ToList().ForEach(product => Console.WriteLine($"Product: {product.ProductName}, Category: {product.Category.CategoryName}"));
             }
         }
 
@@ -143,6 +158,27 @@ namespace Telegram.Bot.Examples.Polling.MethodsDB
             using (var connection = new SqlConnection(ConnectionString.ConnectionString))
             {
                 return connection.Query<PlayerStatistic>("select * from PlayerStatistics").ToList();
+            }
+        }
+
+        public static List<Inventory> GetPlayerInventory(long playerId)
+        {
+            if (!GetPlayers().Exists(x => x.User_id == playerId)) return new List<Inventory>();
+
+            using (var connection = new SqlConnection(ConnectionString.ConnectionString))
+            {
+                var sql = @"SELECT *
+                        FROM Inventory i 
+                        LEFT JOIN Items s ON s.Item_id = i.Item_id";
+
+                var inventory = connection.Query<Inventory, Items, Inventory>(sql, (inv, items) =>
+                {
+                    inv.Items = items;
+                    return inv;
+                },
+                splitOn: "Item_id");
+
+                return inventory.ToList();
             }
         }
     }

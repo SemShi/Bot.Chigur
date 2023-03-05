@@ -132,6 +132,28 @@ namespace Telegram.Bot.Examples.Polling
                     cancellationToken: cancellationToken);
         }
 
+        public static async Task<Message> PlayerInventory(ITelegramBotClient botClient, Message message, CancellationToken cancellationToken)
+        {
+            var playerInventory = InteractWithPlayer.GetPlayerInventory(message.From.Id);
+            if (playerInventory.Count == 0)
+            {
+                return await botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: $"\"{message.From.FirstName}\", ты не в игре. Используй команду /iwannaplay, попробуй обыграть повелителя Сигм!",
+                    cancellationToken: cancellationToken);
+            }
+            var msgInv = new StringBuilder();
+            msgInv.Append($"🎒Инвентарь игрока {message.From.FirstName}:\n");
+            foreach(var item in playerInventory )
+            {
+                msgInv.Append($"— {item.Items.Name}\n");
+            }
+            return await botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: msgInv.ToString(),
+                    cancellationToken: cancellationToken);
+        }
+
         #region Админские команды
         public static async Task<Message> ClearDatabase(ITelegramBotClient botClient, Message message, CancellationToken cancellationToken)
         {
