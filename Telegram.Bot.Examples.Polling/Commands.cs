@@ -201,46 +201,9 @@ namespace Telegram.Bot.Examples.Polling
                 buttons[i] = InlineKeyboardButton.WithCallbackData(text: player.Name ?? "Unknown", callbackData: $"{player.User_id},/addPlayer,{message.Chat.Id},{player.Name ?? "Unknown"}");
                 i++;
             }
-
-            bool IsCountLinesEven = existingPlayers.Count % 2 == 0 ? true : false;
-            int lines;
-            if (existingPlayers.Count == 1 || existingPlayers.Count == 2) lines = 1;
-            else if (existingPlayers.Count == 3 || existingPlayers.Count == 4) lines = 2;
-            else lines = existingPlayers.Count / 2 + (IsCountLinesEven ? 1 : 0);
-
-            InlineKeyboardButton[][] inlineButtons = new InlineKeyboardButton[lines][];
-            i = 0;
-            for (int j = 0; j < lines; j++)
-            {
-                if (Helpers.Extensions.IsIndexExist(buttons, i + 2))
-                {
-                    inlineButtons[j] = new InlineKeyboardButton[2]
-                    {
-                        buttons[i],
-                        buttons[i+1]
-                    };
-                   i += 2;
-                }
-                else if (Helpers.Extensions.IsIndexExist(buttons, i + 1))
-                {
-                    inlineButtons[j] = new InlineKeyboardButton[1]
-                    {
-                        buttons[i]
-                    };
-                }
-                else if (Helpers.Extensions.IsIndexExist(buttons, i))
-                {
-                    inlineButtons[j] = new InlineKeyboardButton[1]
-                    {
-                        buttons[i]
-                    };
-                }
-                else break;
-                
-            }
             #endregion
 
-            InlineKeyboardMarkup inlineKeyboard = new(inlineButtons);
+            InlineKeyboardMarkup inlineKeyboard = new(Helpers.Extensions.GetButtons(existingPlayers, buttons));
 
             return await botClient.SendTextMessageAsync(
                 chatId: message.Chat.Id,

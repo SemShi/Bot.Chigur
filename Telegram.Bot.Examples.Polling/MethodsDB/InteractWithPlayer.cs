@@ -52,6 +52,10 @@ namespace Telegram.Bot.Examples.Polling.MethodsDB
             using (var connection = new SqlConnection(ConnectionString.ConnectionString))
             {
                 UpdateStatPlayer(playerId, "/death");
+                connection.Query<Inventory>($"delete from " +
+                                            $"  Inventory " +
+                                            $"where " +
+                                            $"  User_id={playerId}");
                 connection.Query<Player>($"delete from " +
                                          $"  Players " +
                                          $"where " +
@@ -113,7 +117,6 @@ namespace Telegram.Bot.Examples.Polling.MethodsDB
                                         $"{(currentRecord[0].Rank > currentRecord[0].Statistics.MaxRank ? $",{currentRecord[0].Rank > currentRecord[0].Statistics.MaxRank} " : "")} " +
                                         $"where" +
                                         $"  User_id={playerId}";
-                            bool s = true;
                             connection.Query<PlayerStatistic>($"update " +
                                                                 $"  PlayerStatistics " +
                                                                 $"set " +
