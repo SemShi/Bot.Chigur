@@ -79,6 +79,30 @@ namespace Telegram.Bot.Examples.Polling
             await Commands.AddPlayerByAdmin(_botClient, playerParams, cancellationToken);
         }
 
+        public static async Task AttackTo(ITelegramBotClient _botClient, CallbackQuery callbackQuery, CancellationToken cancellationToken, Inventory parameters)
+        {
+            var msg = new Message();
+            msg.From = new User();
+            msg.Chat = new Chat();
+            msg.Chat.Id = callbackQuery.Message.Chat.Id;
+            msg.From.FirstName = callbackQuery.From.FirstName;
+            msg.From.Id = callbackQuery.From.Id;
+            msg.From.Username = callbackQuery.From.Username;
+            await Commands.StartAttacking(_botClient, msg, cancellationToken, parameters);
+        }
+
+        public static async Task GoAttack(ITelegramBotClient _botClient, CallbackQuery callbackQuery, CancellationToken cancellationToken, Player parameters, int itemId)
+        {
+            var msg = new Message();
+            msg.From = new User();
+            msg.Chat = new Chat();
+            msg.Chat.Id = callbackQuery.Message.Chat.Id;
+            msg.From.FirstName = callbackQuery.From.FirstName;
+            msg.From.Id = callbackQuery.From.Id;
+            msg.From.Username = callbackQuery.From.Username;
+            await Commands.ContinueAttacking(_botClient, msg, cancellationToken, parameters, itemId);
+        }
+
         #region Примеры ответов на коллбеки
         static async Task CallbackAnswer(ITelegramBotClient _botClient, CallbackQuery callbackQuery, CancellationToken cancellationToken)
         {

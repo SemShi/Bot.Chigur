@@ -4,6 +4,7 @@ using System.Data.SqlClient;
 using System.Net;
 using System.Numerics;
 using System.Threading;
+using System.Xml.Linq;
 using Telegram.Bot.Examples.Polling;
 using Telegram.Bot.Examples.Polling.Files;
 using Telegram.Bot.Examples.Polling.Games;
@@ -81,6 +82,7 @@ public class UpdateHandler : IUpdateHandler
                 "/delallfromdb"      => Commands.ClearDatabase(_botClient, message, cancellationToken),
                 "/addplayer"         => Commands.AddPlayerByAdmin(_botClient, message, cancellationToken),
                 "/inventory"         => Commands.PlayerInventory(_botClient, message, cancellationToken),
+                "/attack"            => Commands.StartAttacking(_botClient, message, cancellationToken),
                 _                    => Commands.Default(_botClient, message, cancellationToken)
             };
             Message sentMessage = await action;
@@ -124,6 +126,25 @@ public class UpdateHandler : IUpdateHandler
                         string Name = data[3].Trim();
                         var playerParams = new Player() { User_id = UserId, Chat_id = ChatId, Name = Name };
                         await Callbacks.AddPlayer(_botClient, playerParams, cancellationToken);
+                        break;
+                    }
+                case "/attack":
+                    {
+                        long AttackToUserId = Convert.ToInt64(value);
+                        long ChatId = Convert.ToInt64(data[2].Trim());
+                        string Name = data[3].Trim();
+                        int attackingItemId = Convert.ToInt32(data[4].Trim());
+                        var playerParams = new Player() { User_id = AttackToUserId, Chat_id = ChatId, Name = Name };
+                        await Callbacks.GoAttack(_botClient, callbackQuery, cancellationToken, playerParams, attackingItemId);
+                        break;
+                    }
+                case "/selectItem":
+                    {
+                        int ItemIdInInventory = Convert.ToInt32(value);
+                        int ItemId = Convert.ToInt32(data[2].Trim());
+                        var invParams = new Inventory() { PLayerItem_Id = ItemIdInInventory, Item_Id= ItemId };
+                        await Callbacks.AttackTo(_botClient, callbackQuery, cancellationToken, invParams);
+
                         break;
                     }
             }

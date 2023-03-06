@@ -43,6 +43,7 @@ namespace Telegram.Bot.Examples.Polling
                     text: $"📝Статистика игрока {message.From.FirstName}:\n" +
                                 $"🤠Имя: {newPlayer.Name}\n" +
                                 $"💊Здоровье: {newPlayer.Health}\n" +
+                                $"💰Шиллинги: {newPlayer.Money}\n" +
                                 $"🏆Рейтинг: {newPlayer.Rank}",
                     cancellationToken: cancellationToken);
             }
@@ -125,6 +126,7 @@ namespace Telegram.Bot.Examples.Polling
                                 $"🤠Имя: {playerStat[0].Name}\n" +
                                 $"💊Здоровье: {playerStat[0].Health}\n" +
                                 $"🏆Рейтинг: {playerStat[0].Rank}\n" +
+                                $"💰Шиллинги: {playerStat[0].Money}\n" +
                                 $"\n" +
                                 $"📔Общая статистика:\n" +
                                 $"🌟Максимальный рейтинг: {playerStat[0].Statistics.MaxRank}\n" +
@@ -152,6 +154,79 @@ namespace Telegram.Bot.Examples.Polling
                     chatId: message.Chat.Id,
                     text: msgInv.ToString(),
                     cancellationToken: cancellationToken);
+        }
+
+        public static async Task<Message> StartAttacking(ITelegramBotClient botClient, Message message, CancellationToken cancellationToken, Inventory Item = null)
+        {
+            if (PlayerHelper.IsPlaying(message))
+            {
+                return await botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: $"\"{message.From.FirstName}\", ты не в игре. Используй команду /iwannaplay, попробуй обыграть повелителя Сигм!",
+                    cancellationToken: cancellationToken);
+            }
+
+            if(Item == null)
+            {
+                var items = InteractWithPlayer.GetPlayerInventory(message.From.Id);
+                InlineKeyboardButton[] buttonsInv = new InlineKeyboardButton[items.Count];
+
+                int o = 0;
+                foreach (var item in items)
+                {
+                    buttonsInv[o] = InlineKeyboardButton.WithCallbackData(text: item.Items.Name, callbackData: $"{item.PLayerItem_Id},/selectItem,{item.Item_Id}");
+                    o++;
+                }
+
+                InlineKeyboardMarkup inlineKeyboardInv = new(Helpers.Extensions.GetButtons(items, buttonsInv));
+
+                return await botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: $"Выберите предмет:",
+                    replyMarkup: inlineKeyboardInv,
+                    cancellationToken: cancellationToken);
+            }
+            
+            var playersInGame = InteractWithPlayer.GetPlayers();
+            InlineKeyboardButton[] buttons = new InlineKeyboardButton[playersInGame.Count];
+
+            int i = 0;
+            foreach (var player in playersInGame)
+            {
+                buttons[i] = InlineKeyboardButton.WithCallbackData(text: player.Name ?? "Unknown", callbackData: $"{player.User_id},/attack,{player.User_id},{player.Name},{Item.Item_Id}");
+                i++;
+            }
+
+            InlineKeyboardMarkup inlineKeyboard = new(Helpers.Extensions.GetButtons(playersInGame, buttons));
+
+            return await botClient.SendTextMessageAsync(
+                chatId: message.Chat.Id,
+                text: $"Выберите игрока для атаки:",
+                replyMarkup: inlineKeyboard,
+                cancellationToken: cancellationToken);
+
+        }
+
+        public static async Task<Message> ContinueAttacking(ITelegramBotClient botClient, Message message, CancellationToken cancellationToken, Player player, int itemId)
+        {
+            await botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: $"\"{message.From.FirstName}\" атакует игрока \"{player.Name}\" предметом \"{InteractWithPlayer.GetItemName(itemId)}\"!",
+                    cancellationToken: cancellationToken);
+            InteractWithPlayer.DoDamagePlayer(player.User_id, "-", itemId, out bool isAlive, out int currentHP);
+
+            if (isAlive)
+            {
+                return await botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: $"У игрока \"{player.Name}\" осталось \"{currentHP}\" ед. здоровья!",
+                    cancellationToken: cancellationToken);
+            }
+            return await botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: $"Игрок \"{player.Name}\" обоссан и слит.💀",
+                    cancellationToken: cancellationToken);
+
         }
 
         #region Админские команды

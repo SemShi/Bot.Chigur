@@ -63,15 +63,36 @@ namespace Telegram.Bot.Examples.Polling.MethodsDB
             }
         }
 
-        public static void DoDamagePlayer(long playerId, int damage)
+        public static void DoDamagePlayer(long playerId, string operation, int ItemId, out bool isAlive, out int currentHP)
+        {
+            isAlive = true;
+            using (var connection = new SqlConnection(ConnectionString.ConnectionString))
+            {
+                connection.Query<Player>($"declare @oldHealth int, @damageOrHeal int;" +
+                                         $"set @oldHealth = (select Health from Players where User_id={playerId});" +
+                                         $"set @damageOrHeal = (select {(operation == "-" ? "Damage" : "Other")} from Items where Item_Id = {ItemId}); " +
+                                         $"update Players " +
+                                         $"set Health = @oldHealth {operation} @damageOrHeal " +
+                                         $"where User_id={playerId}");
+
+                var player = GetPlayers($"where User_id={playerId}")[0];
+                if (operation == "+" && player.Health > 100)
+                    connection.Query<Player>($"update Players set Health=100 where User_id={playerId}");
+                else if (operation == "-" && player.Health <= 0)
+                {
+                    isAlive= false;
+                    DeletePlayer(playerId);
+                }
+                currentHP = player.Health;
+            }
+        }
+
+        public static string GetItemName(int itemId)
         {
             using (var connection = new SqlConnection(ConnectionString.ConnectionString))
             {
-                connection.Query<Player>($"declare @oldHealth int " +
-                                         $"set @oldHealth = (select Health from Players where User_id={playerId}) " +
-                                         $"update Players " +
-                                         $"set Health = @oldHealth - {damage} " +
-                                         $"where User_id={playerId}");
+                var item = connection.Query<Items>($"select Name from Items where Item_id={itemId}").ToList()[0];
+                return item.Name;
             }
         }
 

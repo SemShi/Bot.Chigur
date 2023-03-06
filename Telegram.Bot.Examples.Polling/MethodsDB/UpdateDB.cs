@@ -17,7 +17,8 @@ namespace Telegram.Bot.Examples.Polling.MethodsDB
         {
             using (var connection = new SqlConnection(ConnectionString.ConnectionString))
             {
-                connection.Query($"delete from Players;" +
+                connection.Query($"delete from Inventory; " +
+                                 $"delete from Players; " +
                                  $"delete from PlayerStatistics ");
             }
         }
